@@ -23,7 +23,7 @@ public class MusicPlayer {
         }
         ringtone = RingtoneManager.getRingtone(context, alarmUri);
         ringtone.setStreamType(AudioManager.STREAM_ALARM);
-        ringtone.play();
+        //ringtone.play();
     }
 
     public static void stop() {
