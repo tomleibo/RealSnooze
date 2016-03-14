@@ -7,21 +7,21 @@ import android.support.v4.content.WakefulBroadcastReceiver;
 
 public class AlarmReceiver extends WakefulBroadcastReceiver {
 
+    private SleepDetector sleepDetector =null;
+
     @Override
     public void onReceive(final Context context, Intent intent) {
+
+
+
         intent.setClassName("tom.realsnooze","tom.realsnooze.MainActivity");
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         context.startActivity(intent);
 
         //setText();
         //soundAlarm(context);
         //startService(context, intent);
         setResultCode(Activity.RESULT_OK);
-    }
-
-    private void setText() {
-        MainActivity inst = MainActivity.instance();
-        inst.setAlarmText("Alarm! Wake up! Wake up!");
     }
 
     private void startService(Context context, Intent intent) {
@@ -31,7 +31,4 @@ public class AlarmReceiver extends WakefulBroadcastReceiver {
         startWakefulService(context, (intent.setComponent(comp)));
     }
 
-    private void soundAlarm(Context context) {
-        MusicPlayer.start(context);
-    }
 }

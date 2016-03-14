@@ -5,6 +5,8 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.os.SystemClock;
+import android.util.Log;
 
 import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 
@@ -13,26 +15,34 @@ import java.text.DecimalFormat;
 /**
  * Created by thinkPAD on 3/14/2016.
  */
-public class SleepDetector implements SensorEventListener {
+public class SleepDetector implements SensorEventListener,Runnable {
 
     private static final int DELAY = 500000;
+    private static final String TAG = "sleepDetector";
+    private long lastWakeUpTime;
+    private long collectionBreakTime;
+    private final long THREAD_SLEEP_TIME = 10000;
     private final SensorManager sensorManager;
     private final Sensor gravity;
     private final Sensor linearAcceleration;
     MainActivity activity;
-    private float lastMeasurement;
     SummaryStatistics gravityStatistics;
     SummaryStatistics accelerationStatistics;
 
-    public SleepDetector(MainActivity mainActivity) {
+    public SleepDetector(MainActivity mainActivity,long collectionBreakTime) {
         this.activity=mainActivity;
+        this.collectionBreakTime =collectionBreakTime;
         sensorManager = (SensorManager)mainActivity.getSystemService(Context.SENSOR_SERVICE);
         gravityStatistics = new SummaryStatistics();
         accelerationStatistics = new SummaryStatistics();
         gravity = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
         linearAcceleration = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+        registerSensors();
+    }
+
+    private void registerSensors() {
         sensorManager.registerListener(this,gravity,DELAY);
-        sensorManager.registerListener(this, linearAcceleration,DELAY);
+        sensorManager.registerListener(this, linearAcceleration, DELAY);
     }
 
     @Override
@@ -52,8 +62,44 @@ public class SleepDetector implements SensorEventListener {
         }
     }
 
+    public void wokeUp() {
+        Log.d(TAG,"Woke up. resetting statistics and taking a break from collection of "+THREAD_SLEEP_TIME+" millis.");
+        lastWakeUpTime= SystemClock.currentThreadTimeMillis();
+        sensorManager.unregisterListener(this);
+        gravityStatistics.clear();
+        accelerationStatistics.clear();
+        takeBreak();
+    }
+
+    private void takeBreak() {
+        Thread thread = new Thread(this);
+        thread.start();
+    }
+
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
+    }
+
+    @Override
+    public void run() {
+        Log.d(TAG,"going to sleep for "+collectionBreakTime+" millis.");
+        try {
+            Thread.sleep(collectionBreakTime);
+        }
+        catch (InterruptedException e) {
+
+        }
+        Log.e(TAG,"sleep over. registering sensors.");
+        registerSensors();
+    }
+
+    public boolean isAsleep() {
+        double result =0;
+        result += Math.abs(gravityStatistics.getMean())/10;
+        Log.d(TAG,"isAsleep: gravity mean = "+result);
+        result += (1-accelerationStatistics.getMean());
+        Log.d(TAG,"isAsleep: gravity + movement = "+result);
+        return result >1.2;
     }
 }
