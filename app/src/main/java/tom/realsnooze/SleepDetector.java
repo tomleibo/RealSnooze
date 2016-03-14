@@ -21,7 +21,6 @@ public class SleepDetector implements SensorEventListener,Runnable {
     private static final String TAG = "sleepDetector";
     private long lastWakeUpTime;
     private long collectionBreakTime;
-    private final long THREAD_SLEEP_TIME = 10000;
     private final SensorManager sensorManager;
     private final Sensor gravity;
     private final Sensor linearAcceleration;
@@ -30,6 +29,7 @@ public class SleepDetector implements SensorEventListener,Runnable {
     SummaryStatistics accelerationStatistics;
 
     public SleepDetector(MainActivity mainActivity,long collectionBreakTime) {
+        Log.e(TAG,"constructing with breakTime = "+collectionBreakTime);
         this.activity=mainActivity;
         this.collectionBreakTime =collectionBreakTime;
         sensorManager = (SensorManager)mainActivity.getSystemService(Context.SENSOR_SERVICE);
@@ -63,7 +63,7 @@ public class SleepDetector implements SensorEventListener,Runnable {
     }
 
     public void wokeUp() {
-        Log.d(TAG,"Woke up. resetting statistics and taking a break from collection of "+THREAD_SLEEP_TIME+" millis.");
+        Log.e(TAG,"Woke up. resetting statistics and taking a break from collection of "+collectionBreakTime+" millis.");
         lastWakeUpTime= SystemClock.currentThreadTimeMillis();
         sensorManager.unregisterListener(this);
         gravityStatistics.clear();
@@ -83,7 +83,7 @@ public class SleepDetector implements SensorEventListener,Runnable {
 
     @Override
     public void run() {
-        Log.d(TAG,"going to sleep for "+collectionBreakTime+" millis.");
+        Log.e(TAG,"going to sleep for "+collectionBreakTime+" millis.");
         try {
             Thread.sleep(collectionBreakTime);
         }
@@ -97,9 +97,9 @@ public class SleepDetector implements SensorEventListener,Runnable {
     public boolean isAsleep() {
         double result =0;
         result += Math.abs(gravityStatistics.getMean())/10;
-        Log.d(TAG,"isAsleep: gravity mean = "+result);
+        Log.e(TAG,"isAsleep: gravity mean = "+result);
         result += (1-accelerationStatistics.getMean());
-        Log.d(TAG,"isAsleep: gravity + movement = "+result);
-        return result >1.2;
+        Log.e(TAG,"isAsleep: gravity + movement = "+result);
+        return result < 1.2;
     }
 }

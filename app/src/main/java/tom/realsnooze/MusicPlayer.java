@@ -1,13 +1,11 @@
 package tom.realsnooze;
 
 import android.content.Context;
+import android.media.AudioManager;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
 
-/**
- * Created by thinkPAD on 3/14/2016.
- */
 public class MusicPlayer {
 
     private static Ringtone ringtone;
@@ -19,10 +17,13 @@ public class MusicPlayer {
         Uri alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
         if (alarmUri == null) {
             alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            if (alarmUri == null) {
+                alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+            }
         }
         ringtone = RingtoneManager.getRingtone(context, alarmUri);
+        ringtone.setStreamType(AudioManager.STREAM_ALARM);
         ringtone.play();
-
     }
 
     public static void stop() {
