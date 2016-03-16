@@ -8,7 +8,6 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.IBinder;
-import android.os.SystemClock;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
@@ -19,22 +18,21 @@ import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
  */
 public class SleepDetector extends Service implements SensorEventListener,Runnable {
 
-    private static final int DELAY = 500000;
+    private static final int SENSOR_FREQUENCY = 500000;
+    private static final long COLLECTION_BREAK_TIME = 30000;
     private static final String TAG = "sleepDetector";
-    private long lastWakeUpTime;
-    private long collectionBreakTime;
-    private final SensorManager sensorManager;
-    private final Sensor gravity;
-    private final Sensor linearAcceleration;
-    private Context activity;
-    SummaryStatistics gravityStatistics;
-    SummaryStatistics accelerationStatistics;
 
-    public SleepDetector(Context mainActivity,long collectionBreakTime) {
-        Log.e(TAG,"constructing with breakTime = "+collectionBreakTime);
-        this.activity=mainActivity;
-        this.collectionBreakTime =collectionBreakTime;
-        sensorManager = (SensorManager)mainActivity.getSystemService(Context.SENSOR_SERVICE);
+    private SensorManager sensorManager;
+    private Sensor gravity;
+    private Sensor linearAcceleration;
+    private SummaryStatistics gravityStatistics;
+    private SummaryStatistics accelerationStatistics;
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        Log.e(TAG,"onCreate");
+        sensorManager = (SensorManager)getSystemService(Context.SENSOR_SERVICE);
         gravityStatistics = new SummaryStatistics();
         accelerationStatistics = new SummaryStatistics();
         gravity = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
@@ -42,9 +40,21 @@ public class SleepDetector extends Service implements SensorEventListener,Runnab
         registerSensors();
     }
 
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        Log.e(TAG,"onStartCommand");
+        return super.onStartCommand(intent, flags, startId);
+    }
+
+    @Nullable
+    @Override
+    public IBinder onBind(Intent intent) {
+        return new Binder();
+    }
+
     private void registerSensors() {
-        sensorManager.registerListener(this,gravity,DELAY);
-        sensorManager.registerListener(this, linearAcceleration, DELAY);
+        sensorManager.registerListener(this,gravity, SENSOR_FREQUENCY);
+        sensorManager.registerListener(this, linearAcceleration, SENSOR_FREQUENCY);
     }
 
     @Override
@@ -63,8 +73,7 @@ public class SleepDetector extends Service implements SensorEventListener,Runnab
     }
 
     public void wokeUp() {
-        Log.e(TAG, "Woke up. resetting statistics and taking a break from collection of " + collectionBreakTime + " millis.");
-        lastWakeUpTime= SystemClock.currentThreadTimeMillis();
+        Log.e(TAG, "Woke up. resetting statistics and taking a break from collection of " + COLLECTION_BREAK_TIME + " millis.");
         sensorManager.unregisterListener(this);
         gravityStatistics.clear();
         accelerationStatistics.clear();
@@ -83,9 +92,9 @@ public class SleepDetector extends Service implements SensorEventListener,Runnab
 
     @Override
     public void run() {
-        Log.e(TAG, "going to sleep for " + collectionBreakTime + " millis.");
+        Log.e(TAG, "going to sleep for " + COLLECTION_BREAK_TIME + " millis.");
         try {
-            Thread.sleep(collectionBreakTime);
+            Thread.sleep(COLLECTION_BREAK_TIME);
         }
         catch (InterruptedException e) {
 
@@ -100,13 +109,17 @@ public class SleepDetector extends Service implements SensorEventListener,Runnab
         result += Math.abs(gravityStatistics.getMean())/10;
         Log.e(TAG,"isAsleep: gravity mean = "+result);
         result += (1-accelerationStatistics.getMean());
-        Log.e(TAG,"isAsleep: gravity + movement = "+result);
+        Log.e(TAG, "isAsleep: gravity + movement = " + result);
         return result < 1.2;
     }
 
-    @Nullable
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
+    public class Binder extends android.os.Binder {
+        public boolean isAsleep() {
+            return SleepDetector.this.isAsleep();
+        }
+
+        public void wokeUp() {
+            SleepDetector.this.wokeUp();
+        }
     }
 }

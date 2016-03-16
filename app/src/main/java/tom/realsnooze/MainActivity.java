@@ -3,9 +3,12 @@ package tom.realsnooze;
 import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
@@ -13,6 +16,12 @@ import android.widget.TimePicker;
 import android.widget.ToggleButton;
 
 import java.util.Calendar;
+
+/**
+ * TODOS:
+ * 1. implement SleepDetector Destroy. this should save statistics locally and load them when its up again.
+ * 2. verify the service flag is correct for re-launch
+ */
 
 public class MainActivity extends Activity  {
 
@@ -24,11 +33,27 @@ public class MainActivity extends Activity  {
     public static final String INTENT_PARAM_IS_ALARM = "isAlarm";
     private static final String TAG = "MainActivity";
 
+    private boolean bound=false;
+    private SleepDetector.Binder binder=null;
     private ToggleButton toggle;
     private TimePicker alarmTimePicker;
     public TextView alarmTextView;
     public TextView text2;
-    public static SleepDetector sleepDetector =null;
+
+    private ServiceConnection serviceConnection = new ServiceConnection() {
+
+        @Override
+        public void onServiceConnected(ComponentName className, IBinder service) {
+            SleepDetector.Binder binder = (SleepDetector.Binder) service;
+            bound = true;
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName arg0) {
+            bound = false;
+        }
+    };
+
 
 
     @Override
@@ -57,14 +82,16 @@ public class MainActivity extends Activity  {
         Log.e(TAG,"onResume. starting from alarm? "+ alarm);
         if (alarm) {
             toggle.setChecked(true);
-            if (sleepDetector==null) {
-                sleepDetector = new SleepDetector(this,MainActivity.COLLECTION_BREAK_TIME);
+            if (!bound) {
+                Intent intent = new Intent(this,SleepDetector.class);
+                startService(intent);
+                bindService(intent, serviceConnection, Context.BIND_ABOVE_CLIENT);
                 soundAlarm(this);
                 setSnooze(this, in.getIntExtra(MainActivity.INTENT_PARAM_SNOOZE,MainActivity.DEFAULT_SNOOZE_MINUTES));
             }
-            else if (sleepDetector.isAsleep()){
+            else if (binder.isAsleep()){
                 soundAlarm(this);
-                sleepDetector.wokeUp();
+                binder.wokeUp();
                 setSnooze(this,in.getIntExtra(MainActivity.INTENT_PARAM_SNOOZE,MainActivity.DEFAULT_SNOOZE_MINUTES));
             }
 
@@ -78,20 +105,22 @@ public class MainActivity extends Activity  {
             Calendar calendar = Calendar.getInstance();
             calendar.set(Calendar.HOUR_OF_DAY, alarmTimePicker.getCurrentHour());
             calendar.set(Calendar.MINUTE, alarmTimePicker.getCurrentMinute());
-            setAlarm(this,calendar,snoozeMinutes);
+            setAlarm(calendar,snoozeMinutes);
         } else {
             Log.e(TAG, "Music off");
             MusicPlayer.stop();
         }
     }
 
-    public static void setAlarm(Context context,Calendar calendar,int snoozeMinutes) {
-        Intent intent = new Intent(context, MainActivity.class);
+
+
+    public void setAlarm(Calendar calendar,int snoozeMinutes) {
+        Intent intent = new Intent(MainActivity.this, AlarmReceiver.class);
         intent.putExtra(INTENT_PARAM_SNOOZE, snoozeMinutes);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         intent.putExtra(MainActivity.INTENT_PARAM_IS_ALARM, true);
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 0, intent, 0);
-        ((AlarmManager) context.getSystemService(ALARM_SERVICE)).set(AlarmManager.RTC, calendar.getTimeInMillis(), pendingIntent);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(MainActivity.this, 0, intent, 0);
+        ((AlarmManager) getSystemService(ALARM_SERVICE)).set(AlarmManager.RTC, calendar.getTimeInMillis(), pendingIntent);
         Log.e(TAG, "Alarm set to " + calendar.getTime().toString());
     }
 
@@ -103,7 +132,7 @@ public class MainActivity extends Activity  {
     private void setSnooze(Context context, int snoozeMinutes) {
         Calendar calendar = Calendar.getInstance();
         calendar.add(Calendar.MINUTE, snoozeMinutes);
-        MainActivity.setAlarm(context, calendar, snoozeMinutes);
+        setAlarm(calendar, snoozeMinutes);
         Log.e(TAG, "snooze set to " + snoozeMinutes + " from now");
     }
 
@@ -112,4 +141,21 @@ public class MainActivity extends Activity  {
         MusicPlayer.start(context);
     }
 
+    @Override
+    protected void onPause() {
+        Log.e(TAG,"onPause");
+        super.onPause();
+    }
+
+    @Override
+    protected void onStop() {
+        Log.e(TAG,"onStop");
+        super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        Log.e(TAG,"onDestroy");
+        super.onDestroy();
+    }
 }
