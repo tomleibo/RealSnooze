@@ -3,11 +3,13 @@ package tom.realsnooze;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.IBinder;
+import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
@@ -21,7 +23,9 @@ public class SleepDetector extends Service implements SensorEventListener,Runnab
     private static final int SENSOR_FREQUENCY = 500000;
     private static final long COLLECTION_BREAK_TIME = 30000;
     private static final String TAG = "sleepDetector";
+    private static final String PREF_IS_RUNNING = "running";
 
+    private long timeCreated;
     private SensorManager sensorManager;
     private Sensor gravity;
     private Sensor linearAcceleration;
@@ -31,7 +35,9 @@ public class SleepDetector extends Service implements SensorEventListener,Runnab
     @Override
     public void onCreate() {
         super.onCreate();
-        Log.e(TAG,"onCreate");
+        Log.e(TAG, "onCreate");
+        setRunning(true);
+        timeCreated= System.currentTimeMillis();
         sensorManager = (SensorManager)getSystemService(Context.SENSOR_SERVICE);
         gravityStatistics = new SummaryStatistics();
         accelerationStatistics = new SummaryStatistics();
@@ -42,7 +48,7 @@ public class SleepDetector extends Service implements SensorEventListener,Runnab
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.e(TAG,"onStartCommand");
+        Log.e(TAG, "onStartCommand");
         return super.onStartCommand(intent, flags, startId);
     }
 
@@ -70,6 +76,14 @@ public class SleepDetector extends Service implements SensorEventListener,Runnab
                 gravityStatistics.addValue(Math.abs(z));
                 break;
         }
+        if (gravityStatistics.getN()%50==0) {
+            Log.e(TAG,"mean gravity = "+gravityStatistics.getMean());
+        }
+        if (accelerationStatistics.getN()%50==0) {
+            Log.e(TAG,"mean speed = "+accelerationStatistics.getMean());
+        }
+
+
     }
 
     public void wokeUp() {
@@ -83,6 +97,10 @@ public class SleepDetector extends Service implements SensorEventListener,Runnab
     private void takeBreak() {
         Thread thread = new Thread(this);
         thread.start();
+    }
+
+    public long getTimeAliveSeconds(){
+        return (System.currentTimeMillis()-timeCreated)/1000;
     }
 
     @Override
@@ -117,9 +135,27 @@ public class SleepDetector extends Service implements SensorEventListener,Runnab
         public boolean isAsleep() {
             return SleepDetector.this.isAsleep();
         }
-
         public void wokeUp() {
             SleepDetector.this.wokeUp();
         }
+    }
+
+    private void setRunning(boolean running) {
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+        SharedPreferences.Editor editor = pref.edit();
+        editor.putBoolean(PREF_IS_RUNNING, running);
+        editor.apply();
+    }
+
+    public static boolean isRunning(Context ctx) {
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(ctx.getApplicationContext());
+        return pref.getBoolean(PREF_IS_RUNNING, false);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        Log.e(TAG,"onDestroy");
+        setRunning(false);
     }
 }

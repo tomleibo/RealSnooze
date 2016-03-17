@@ -21,6 +21,7 @@ import java.util.Calendar;
  * TODOS:
  * 1. implement SleepDetector Destroy. this should save statistics locally and load them when its up again.
  * 2. verify the service flag is correct for re-launch
+ * 3. fix log levels
  */
 
 public class MainActivity extends Activity  {
@@ -79,24 +80,31 @@ public class MainActivity extends Activity  {
         super.onResume();
         Intent in = getIntent();
         boolean alarm = in.getBooleanExtra(INTENT_PARAM_IS_ALARM, false);
-        Log.e(TAG,"onResume. starting from alarm? "+ alarm);
+        Log.e(TAG, "onResume. starting from alarm? " + alarm);
         if (alarm) {
-            toggle.setChecked(true);
-            if (!bound) {
-                Intent intent = new Intent(this,SleepDetector.class);
-                startService(intent);
-                bindService(intent, serviceConnection, Context.BIND_ABOVE_CLIENT);
-                soundAlarm(this);
-                setSnooze(this, in.getIntExtra(MainActivity.INTENT_PARAM_SNOOZE,MainActivity.DEFAULT_SNOOZE_MINUTES));
-            }
-            else if (binder.isAsleep()){
+            onAlarm(in);
+        }
+    }
+
+    private void onAlarm(Intent in) {
+        Log.e(TAG, "onAlarm. bound? " + bound + ". binder = " + binder);
+        toggle.setChecked(true);
+        try {
+            Intent intent = new Intent(this, SleepDetector.class);
+            startService(intent);
+            bindService(intent, serviceConnection, Context.BIND_ABOVE_CLIENT);
+            soundAlarm(this);
+            setSnooze(this, in.getIntExtra(MainActivity.INTENT_PARAM_SNOOZE, MainActivity.DEFAULT_SNOOZE_MINUTES));
+            //TODO need to fix logic to SleeoDetector.isRunning
+            if (binder.isAsleep()) {
                 soundAlarm(this);
                 binder.wokeUp();
-                setSnooze(this,in.getIntExtra(MainActivity.INTENT_PARAM_SNOOZE,MainActivity.DEFAULT_SNOOZE_MINUTES));
+                setSnooze(this, in.getIntExtra(MainActivity.INTENT_PARAM_SNOOZE, MainActivity.DEFAULT_SNOOZE_MINUTES));
             }
-
         }
-
+        catch (Exception e){
+            Log.e(TAG,TAG,e);
+        }
     }
 
     public void onToggleClicked(View view) {
@@ -111,8 +119,6 @@ public class MainActivity extends Activity  {
             MusicPlayer.stop();
         }
     }
-
-
 
     public void setAlarm(Calendar calendar,int snoozeMinutes) {
         Intent intent = new Intent(MainActivity.this, AlarmReceiver.class);
@@ -134,6 +140,12 @@ public class MainActivity extends Activity  {
         calendar.add(Calendar.MINUTE, snoozeMinutes);
         setAlarm(calendar, snoozeMinutes);
         Log.e(TAG, "snooze set to " + snoozeMinutes + " from now");
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        onAlarm(intent);
     }
 
     private void soundAlarm(Context context) {
