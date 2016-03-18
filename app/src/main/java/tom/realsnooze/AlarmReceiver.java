@@ -15,8 +15,8 @@ public class AlarmReceiver extends WakefulBroadcastReceiver {
     @Override
     public void onReceive(final Context context, Intent intent) {
         Log.e(TAG, "got broadcast. ");
-
-        intent.setClassName("tom.realsnooze","tom.realsnooze.MainActivity");
+        intent = new Intent(context,MainActivity.class);
+        //intent.setClassName("tom.realsnooze","tom.realsnooze.MainActivity");
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         intent.putExtra(MainActivity.INTENT_PARAM_IS_ALARM, true);
         context.startActivity(intent);

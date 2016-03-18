@@ -22,19 +22,20 @@ import java.util.Calendar;
  * 1. implement SleepDetector Destroy. this should save statistics locally and load them when its up again.
  * 2. verify the service flag is correct for re-launch
  * 3. fix log levels
+ * 4. improve music player.
+ * 5. create a proper notification service?
  */
 
 public class MainActivity extends Activity  {
 
 
     public static final int DEFAULT_SNOOZE_MINUTES = 2;
-    public static final long COLLECTION_BREAK_TIME = 30000;
+    private static final long TIME_ALIVE_IMPLIES_NOT_FIRST_RUN = 30;
     private int snoozeMinutes = DEFAULT_SNOOZE_MINUTES;
     public static final String INTENT_PARAM_SNOOZE = "snooze";
     public static final String INTENT_PARAM_IS_ALARM = "isAlarm";
     private static final String TAG = "MainActivity";
 
-    private boolean bound=false;
     private SleepDetector.Binder binder=null;
     private ToggleButton toggle;
     private TimePicker alarmTimePicker;
@@ -45,13 +46,23 @@ public class MainActivity extends Activity  {
 
         @Override
         public void onServiceConnected(ComponentName className, IBinder service) {
-            SleepDetector.Binder binder = (SleepDetector.Binder) service;
-            bound = true;
+            Log.e(TAG,"Service connected.");
+            binder = (SleepDetector.Binder) service;
+            if (binder.getTimeAliveSeconds() > TIME_ALIVE_IMPLIES_NOT_FIRST_RUN) {
+                Log.e(TAG,"this is not the first run of the service.");
+                if (binder.isAsleep()) {
+                    SoundAlarmAndSetSnooze();
+                    binder.wokeUp();
+                }
+                return;
+            }
+            Log.e(TAG,"first run of the service just sounding alarm and setting snooze.");
+            SoundAlarmAndSetSnooze();
         }
 
         @Override
         public void onServiceDisconnected(ComponentName arg0) {
-            bound = false;
+            binder = null;
         }
     };
 
@@ -87,24 +98,32 @@ public class MainActivity extends Activity  {
     }
 
     private void onAlarm(Intent in) {
-        Log.e(TAG, "onAlarm. bound? " + bound + ". binder = " + binder);
+        Log.e(TAG, "onAlarm. bound? " + (binder!=null));
         toggle.setChecked(true);
         try {
-            Intent intent = new Intent(this, SleepDetector.class);
-            startService(intent);
-            bindService(intent, serviceConnection, Context.BIND_ABOVE_CLIENT);
-            soundAlarm(this);
-            setSnooze(this, in.getIntExtra(MainActivity.INTENT_PARAM_SNOOZE, MainActivity.DEFAULT_SNOOZE_MINUTES));
-            //TODO need to fix logic to SleeoDetector.isRunning
-            if (binder.isAsleep()) {
-                soundAlarm(this);
-                binder.wokeUp();
-                setSnooze(this, in.getIntExtra(MainActivity.INTENT_PARAM_SNOOZE, MainActivity.DEFAULT_SNOOZE_MINUTES));
+            if (binder!=null) {
+                if (binder.isAsleep()) {
+                    SoundAlarmAndSetSnooze();
+                    binder.wokeUp();
+                }
+                else {
+                    toggle.setChecked(false);
+                }
+            }
+            else {
+                Intent intent = new Intent(this, SleepDetector.class);
+                getApplicationContext().startService(intent);
+                getApplicationContext().bindService(intent, serviceConnection, Context.BIND_ABOVE_CLIENT);
             }
         }
         catch (Exception e){
             Log.e(TAG,TAG,e);
         }
+    }
+
+    private void SoundAlarmAndSetSnooze() {
+        soundAlarm(this);
+        setSnooze(MainActivity.DEFAULT_SNOOZE_MINUTES);
     }
 
     public void onToggleClicked(View view) {
@@ -122,7 +141,6 @@ public class MainActivity extends Activity  {
 
     public void setAlarm(Calendar calendar,int snoozeMinutes) {
         Intent intent = new Intent(MainActivity.this, AlarmReceiver.class);
-        intent.putExtra(INTENT_PARAM_SNOOZE, snoozeMinutes);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         intent.putExtra(MainActivity.INTENT_PARAM_IS_ALARM, true);
         PendingIntent pendingIntent = PendingIntent.getBroadcast(MainActivity.this, 0, intent, 0);
@@ -135,7 +153,7 @@ public class MainActivity extends Activity  {
     }
 
 
-    private void setSnooze(Context context, int snoozeMinutes) {
+    private void setSnooze(int snoozeMinutes) {
         Calendar calendar = Calendar.getInstance();
         calendar.add(Calendar.MINUTE, snoozeMinutes);
         setAlarm(calendar, snoozeMinutes);

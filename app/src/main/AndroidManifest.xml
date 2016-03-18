@@ -21,7 +21,7 @@
             android:name=".NotificationService"
             android:enabled="true" />
         <receiver android:name=".AlarmReceiver" />
-        <service android:name=".SleepDetector" android:enabled="true" />
+        <service android:name="tom.realsnooze.SleepDetector" android:enabled="true" />
 
 
     </application>

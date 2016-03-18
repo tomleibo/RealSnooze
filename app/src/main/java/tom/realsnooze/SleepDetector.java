@@ -59,7 +59,7 @@ public class SleepDetector extends Service implements SensorEventListener,Runnab
     }
 
     private void registerSensors() {
-        sensorManager.registerListener(this,gravity, SENSOR_FREQUENCY);
+        sensorManager.registerListener(this, gravity, SENSOR_FREQUENCY);
         sensorManager.registerListener(this, linearAcceleration, SENSOR_FREQUENCY);
     }
 
@@ -117,18 +117,18 @@ public class SleepDetector extends Service implements SensorEventListener,Runnab
         catch (InterruptedException e) {
 
         }
-        Log.e(TAG,"sleep over. registering sensors.");
+        Log.e(TAG, "sleep over. registering sensors.");
         registerSensors();
     }
 
     public boolean isAsleep() {
         double result =0;
         Log.e(TAG,"isAsleep: result is based on "+gravityStatistics.getN()+" gravity events and "+accelerationStatistics.getN()+" movement events");
-        result += Math.abs(gravityStatistics.getMean())/10;
+        result += 1-(Math.abs(gravityStatistics.getMean())/10);
         Log.e(TAG,"isAsleep: gravity mean = "+result);
-        result += (1-accelerationStatistics.getMean());
+        result += (accelerationStatistics.getMean());
         Log.e(TAG, "isAsleep: gravity + movement = " + result);
-        return result < 1.2;
+        return result < 0.5;
     }
 
     public class Binder extends android.os.Binder {
@@ -138,6 +138,9 @@ public class SleepDetector extends Service implements SensorEventListener,Runnab
         public void wokeUp() {
             SleepDetector.this.wokeUp();
         }
+        public long getTimeAliveSeconds() {
+            return SleepDetector.this.getTimeAliveSeconds();
+        };
     }
 
     private void setRunning(boolean running) {
@@ -152,10 +155,11 @@ public class SleepDetector extends Service implements SensorEventListener,Runnab
         return pref.getBoolean(PREF_IS_RUNNING, false);
     }
 
+
     @Override
     public void onDestroy() {
         super.onDestroy();
-        Log.e(TAG,"onDestroy");
+        Log.e(TAG, "onDestroy");
         setRunning(false);
     }
 }
