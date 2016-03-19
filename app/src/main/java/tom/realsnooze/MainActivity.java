@@ -9,8 +9,11 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.text.Editable;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.TimePicker;
@@ -19,10 +22,14 @@ import android.widget.ToggleButton;
 import java.util.Calendar;
 
 /**
+ * BUGS:
+ * 1. previous alarms are not cancelled
+ * 2. alarm is on even when not asleep?
+ *
  * TODOS:
  * V - fixed service flags.
  * V - fixed activity showing one more time after snooze.
- * V - closed app and service when awake.
+ * V - closed app and service when user awakes.
  * V - extracted toggle behavior to act both on toggle and new time set.
  * V - onNewTimeSet also cancels all previous alarms.
  * V - added snooze field.
@@ -96,6 +103,36 @@ public class MainActivity extends Activity  {
                 }
             }
         });
+        snoozeField.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View v, boolean hasFocus) {
+                if (!hasFocus) {
+                    snoozeChanged(snoozeField.getText());
+                }
+            }
+        });
+        snoozeField.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            @Override
+            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                if (event != null&& (event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
+                    InputMethodManager in = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                    in.hideSoftInputFromWindow(v.getApplicationWindowToken(), InputMethodManager.HIDE_NOT_ALWAYS);
+                    return true;
+
+                }
+                return false;
+            }
+        });
+    }
+
+    private void snoozeChanged(Editable text) {
+        try {
+            snoozeMinutes = Integer.parseInt(text.toString());
+            Log.e(TAG,"snooze changed = "+snoozeMinutes);
+        }
+        catch(NumberFormatException e) {
+            Log.e(TAG,"Snooze Changed: Snooze field contained non-integer value",e);
+        }
     }
 
 
@@ -161,10 +198,11 @@ public class MainActivity extends Activity  {
         Calendar calendar = Calendar.getInstance();
         calendar.set(Calendar.HOUR_OF_DAY, alarmTimePicker.getCurrentHour());
         calendar.set(Calendar.MINUTE, alarmTimePicker.getCurrentMinute());
-        setAlarm(calendar, snoozeMinutes);
+        setAlarm(calendar);
     }
 
     private void cancelPreviousAlarms() {
+        Log.e(TAG, "previous alarms cancelled");
         if (pendingIntent!=null) {
             ((AlarmManager) getSystemService(ALARM_SERVICE)).cancel(pendingIntent);
             pendingIntent=null;
@@ -172,7 +210,7 @@ public class MainActivity extends Activity  {
     }
 
 
-    public void setAlarm(Calendar calendar,int snoozeMinutes) {
+    public void setAlarm(Calendar calendar) {
         Intent intent = new Intent(MainActivity.this, AlarmReceiver.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         intent.putExtra(MainActivity.INTENT_PARAM_IS_ALARM, true);
@@ -185,7 +223,7 @@ public class MainActivity extends Activity  {
     private void setSnooze(int snoozeMinutes) {
         Calendar calendar = Calendar.getInstance();
         calendar.add(Calendar.MINUTE, snoozeMinutes);
-        setAlarm(calendar, snoozeMinutes);
+        setAlarm(calendar);
         Log.e(TAG, "snooze set to " + snoozeMinutes + " from now");
     }
 
