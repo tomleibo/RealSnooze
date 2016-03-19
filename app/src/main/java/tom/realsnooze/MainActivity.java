@@ -11,7 +11,6 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
 import android.view.View;
-import android.widget.TextView;
 import android.widget.TimePicker;
 import android.widget.ToggleButton;
 
@@ -19,11 +18,17 @@ import java.util.Calendar;
 
 /**
  * TODOS:
- * 1. implement SleepDetector Destroy. this should save statistics locally and load them when its up again.
- * 2. verify the service flag is correct for re-launch
- * 3. fix log levels
+ * V - fixed service flags.
+ * V - fixed activity showing one more time after snooze.
+ * V - closed app and service when awake.
+ * V - extracted toggle behavior to act both on toggle and new time set.
+ * V - onNewTimeSet also cancels all previous alarms.
+ *
+ * 1. set snooze input field.
+ * 2. save snooze value as shared preferences.
  * 4. improve music player.
  * 5. create a proper notification service?
+ * 3. fix log levels
  */
 
 public class MainActivity extends Activity  {
@@ -32,16 +37,13 @@ public class MainActivity extends Activity  {
     public static final int DEFAULT_SNOOZE_MINUTES = 2;
     private static final long TIME_ALIVE_IMPLIES_NOT_FIRST_RUN = 30;
     private int snoozeMinutes = DEFAULT_SNOOZE_MINUTES;
-    public static final String INTENT_PARAM_SNOOZE = "snooze";
     public static final String INTENT_PARAM_IS_ALARM = "isAlarm";
     private static final String TAG = "MainActivity";
 
     private SleepDetector.Binder binder=null;
     private ToggleButton toggle;
     private TimePicker alarmTimePicker;
-    public TextView alarmTextView;
-    public TextView text2;
-
+    private PendingIntent pendingIntent;
     private ServiceConnection serviceConnection = new ServiceConnection() {
 
         @Override
@@ -53,6 +55,9 @@ public class MainActivity extends Activity  {
                 if (binder.isAsleep()) {
                     SoundAlarmAndSetSnooze();
                     binder.wokeUp();
+                }
+                else {
+                    closeApp();
                 }
                 return;
             }
@@ -66,19 +71,23 @@ public class MainActivity extends Activity  {
         }
     };
 
-
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.e(TAG, "onCreate");
         setContentView(R.layout.activity_main);
         alarmTimePicker = (TimePicker) findViewById(R.id.alarmTimePicker);
-        alarmTextView = (TextView) findViewById(R.id.alarmText);
-        text2 = (TextView) findViewById(R.id.textView);
         toggle = (ToggleButton) findViewById(R.id.alarmToggle);
-        ToggleButton alarmToggle = (ToggleButton) findViewById(R.id.alarmToggle);
+        alarmTimePicker.setOnTimeChangedListener(new TimePicker.OnTimeChangedListener() {
+            @Override
+            public void onTimeChanged(TimePicker view, int hourOfDay, int minute) {
+                if (toggle.isChecked()) {
+                    onNewTimeSet();
+                }
+            }
+        });
     }
+
 
     @Override
     public void onStart() {
@@ -97,8 +106,9 @@ public class MainActivity extends Activity  {
         }
     }
 
+
     private void onAlarm(Intent in) {
-        Log.e(TAG, "onAlarm. bound? " + (binder!=null));
+        Log.e(TAG, "onAlarm. bound? " + (binder != null));
         toggle.setChecked(true);
         try {
             if (binder!=null) {
@@ -127,29 +137,38 @@ public class MainActivity extends Activity  {
     }
 
     public void onToggleClicked(View view) {
-        Log.e(TAG,"onToggle");
-        if (((ToggleButton) view).isChecked()) {
-            Calendar calendar = Calendar.getInstance();
-            calendar.set(Calendar.HOUR_OF_DAY, alarmTimePicker.getCurrentHour());
-            calendar.set(Calendar.MINUTE, alarmTimePicker.getCurrentMinute());
-            setAlarm(calendar,snoozeMinutes);
+        Log.e(TAG, "onToggle");
+        if (toggle.isChecked()) {
+            onNewTimeSet();
         } else {
             Log.e(TAG, "Music off");
             MusicPlayer.stop();
         }
     }
 
+    private void onNewTimeSet() {
+        cancelPreviousAlarms();
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, alarmTimePicker.getCurrentHour());
+        calendar.set(Calendar.MINUTE, alarmTimePicker.getCurrentMinute());
+        setAlarm(calendar, snoozeMinutes);
+    }
+
+    private void cancelPreviousAlarms() {
+        if (pendingIntent!=null) {
+            ((AlarmManager) getSystemService(ALARM_SERVICE)).cancel(pendingIntent);
+            pendingIntent=null;
+        }
+    }
+
+
     public void setAlarm(Calendar calendar,int snoozeMinutes) {
         Intent intent = new Intent(MainActivity.this, AlarmReceiver.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         intent.putExtra(MainActivity.INTENT_PARAM_IS_ALARM, true);
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(MainActivity.this, 0, intent, 0);
+        pendingIntent = PendingIntent.getBroadcast(MainActivity.this, 0, intent, 0);
         ((AlarmManager) getSystemService(ALARM_SERVICE)).set(AlarmManager.RTC, calendar.getTimeInMillis(), pendingIntent);
         Log.e(TAG, "Alarm set to " + calendar.getTime().toString());
-    }
-
-    public void setAlarmText(String alarmText) {
-        alarmTextView.setText(alarmText);
     }
 
 
@@ -188,4 +207,14 @@ public class MainActivity extends Activity  {
         Log.e(TAG,"onDestroy");
         super.onDestroy();
     }
+
+    private void closeApp() {
+        stopService(new Intent(this, SleepDetector.class));
+        if (binder!=null) {
+            unbindService(serviceConnection);
+        }
+        finish();
+    }
+
+
 }
