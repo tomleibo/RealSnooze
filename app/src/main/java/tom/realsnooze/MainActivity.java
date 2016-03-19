@@ -11,6 +11,8 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
 import android.view.View;
+import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.TimePicker;
 import android.widget.ToggleButton;
 
@@ -23,7 +25,10 @@ import java.util.Calendar;
  * V - closed app and service when awake.
  * V - extracted toggle behavior to act both on toggle and new time set.
  * V - onNewTimeSet also cancels all previous alarms.
+ * V - added snooze field.
  *
+ * TODO:
+ * *. implement snooze field behavior.
  * 1. set snooze input field.
  * 2. save snooze value as shared preferences.
  * 4. improve music player.
@@ -40,6 +45,8 @@ public class MainActivity extends Activity  {
     public static final String INTENT_PARAM_IS_ALARM = "isAlarm";
     private static final String TAG = "MainActivity";
 
+    private EditText snoozeField = null;
+    private TextView snoozeText = null;
     private SleepDetector.Binder binder=null;
     private ToggleButton toggle;
     private TimePicker alarmTimePicker;
@@ -76,6 +83,9 @@ public class MainActivity extends Activity  {
         super.onCreate(savedInstanceState);
         Log.e(TAG, "onCreate");
         setContentView(R.layout.activity_main);
+        snoozeText = (TextView) findViewById(R.id.textView);
+        snoozeField = (EditText) findViewById(R.id.editText);
+        snoozeField.setText(DEFAULT_SNOOZE_MINUTES+"");
         alarmTimePicker = (TimePicker) findViewById(R.id.alarmTimePicker);
         toggle = (ToggleButton) findViewById(R.id.alarmToggle);
         alarmTimePicker.setOnTimeChangedListener(new TimePicker.OnTimeChangedListener() {
