@@ -77,10 +77,10 @@ public class SleepDetector extends Service implements SensorEventListener,Runnab
                 gravityStatistics.addValue(Math.abs(z));
                 break;
         }
-        if (gravityStatistics.getN()%50==0) {
+        if (gravityStatistics.getN()%150==0) {
             Log.e(TAG,"mean gravity = "+gravityStatistics.getMean());
         }
-        if (accelerationStatistics.getN()%50==0) {
+        if (accelerationStatistics.getN()%150==0) {
             Log.e(TAG,"mean speed = "+accelerationStatistics.getMean());
         }
 

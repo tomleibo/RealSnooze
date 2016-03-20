@@ -11,9 +11,7 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.text.Editable;
 import android.util.Log;
-import android.view.KeyEvent;
 import android.view.View;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.TimePicker;
@@ -23,19 +21,20 @@ import java.util.Calendar;
 
 /**
  * BUGS:
- * 1. previous alarms are not cancelled
- * 2. alarm is on even when not asleep?
- *
- * TODOS:
+ * 2. alarm is on even when not asleep - check isAsleep and its usages
+ * 3. edit snooze not working. focus listener doesnt launch.
+ * 4. closeApp causes IllegalArgumentException. and unbinding may not work.
+ * DONE:
  * V - fixed service flags.
  * V - fixed activity showing one more time after snooze.
  * V - closed app and service when user awakes.
  * V - extracted toggle behavior to act both on toggle and new time set.
  * V - onNewTimeSet also cancels all previous alarms.
  * V - added snooze field.
- *
+ * V - keyboard doesnt close
+ * V - previous alarms are not cancelled - last intent number(or extra) can be saved in shared prefrences and checked in alarm receiver.
  * TODO:
- * *. implement snooze field behavior.
+ * *. implement snooze field behavior. and test
  * 1. set snooze input field.
  * 2. save snooze value as shared preferences.
  * 4. improve music player.
@@ -48,6 +47,7 @@ public class MainActivity extends Activity  {
 
     public static final int DEFAULT_SNOOZE_MINUTES = 2;
     private static final long TIME_ALIVE_IMPLIES_NOT_FIRST_RUN = 30;
+    private static final int INTENT_IDENTIFICATOR = 1234;
     private int snoozeMinutes = DEFAULT_SNOOZE_MINUTES;
     public static final String INTENT_PARAM_IS_ALARM = "isAlarm";
     private static final String TAG = "MainActivity";
@@ -66,13 +66,7 @@ public class MainActivity extends Activity  {
             binder = (SleepDetector.Binder) service;
             if (binder.getTimeAliveSeconds() > TIME_ALIVE_IMPLIES_NOT_FIRST_RUN) {
                 Log.e(TAG,"this is not the first run of the service.");
-                if (binder.isAsleep()) {
-                    SoundAlarmAndSetSnooze();
-                    binder.wokeUp();
-                }
-                else {
-                    closeApp();
-                }
+                alarmIfAsleepCloseIfAwake();
                 return;
             }
             Log.e(TAG,"first run of the service just sounding alarm and setting snooze.");
@@ -93,6 +87,7 @@ public class MainActivity extends Activity  {
         snoozeText = (TextView) findViewById(R.id.textView);
         snoozeField = (EditText) findViewById(R.id.editText);
         snoozeField.setText(DEFAULT_SNOOZE_MINUTES+"");
+        snoozeField.setFocusable(true);
         alarmTimePicker = (TimePicker) findViewById(R.id.alarmTimePicker);
         toggle = (ToggleButton) findViewById(R.id.alarmToggle);
         alarmTimePicker.setOnTimeChangedListener(new TimePicker.OnTimeChangedListener() {
@@ -111,23 +106,13 @@ public class MainActivity extends Activity  {
                 }
             }
         });
-        snoozeField.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-            @Override
-            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                if (event != null&& (event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
-                    InputMethodManager in = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-                    in.hideSoftInputFromWindow(v.getApplicationWindowToken(), InputMethodManager.HIDE_NOT_ALWAYS);
-                    return true;
 
-                }
-                return false;
-            }
-        });
     }
 
     private void snoozeChanged(Editable text) {
         try {
             snoozeMinutes = Integer.parseInt(text.toString());
+
             Log.e(TAG,"snooze changed = "+snoozeMinutes);
         }
         catch(NumberFormatException e) {
@@ -145,9 +130,9 @@ public class MainActivity extends Activity  {
     @Override
     protected void onResume() {
         super.onResume();
+        Log.e(TAG, "onResume. ");
         Intent in = getIntent();
         boolean alarm = in.getBooleanExtra(INTENT_PARAM_IS_ALARM, false);
-        Log.e(TAG, "onResume. starting from alarm? " + alarm);
         if (alarm) {
             onAlarm(in);
         }
@@ -159,13 +144,7 @@ public class MainActivity extends Activity  {
         toggle.setChecked(true);
         try {
             if (binder!=null) {
-                if (binder.isAsleep()) {
-                    SoundAlarmAndSetSnooze();
-                    binder.wokeUp();
-                }
-                else {
-                    toggle.setChecked(false);
-                }
+                alarmIfAsleepCloseIfAwake();
             }
             else {
                 Intent intent = new Intent(this, SleepDetector.class);
@@ -178,9 +157,19 @@ public class MainActivity extends Activity  {
         }
     }
 
+    private void alarmIfAsleepCloseIfAwake() {
+        if (binder.isAsleep()) {
+            SoundAlarmAndSetSnooze();
+            binder.wokeUp();
+        }
+        else {
+            closeApp();
+        }
+    }
+
     private void SoundAlarmAndSetSnooze() {
         soundAlarm(this);
-        setSnooze(MainActivity.DEFAULT_SNOOZE_MINUTES);
+        setSnooze(snoozeMinutes);
     }
 
     public void onToggleClicked(View view) {
@@ -214,7 +203,7 @@ public class MainActivity extends Activity  {
         Intent intent = new Intent(MainActivity.this, AlarmReceiver.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         intent.putExtra(MainActivity.INTENT_PARAM_IS_ALARM, true);
-        pendingIntent = PendingIntent.getBroadcast(MainActivity.this, 0, intent, 0);
+        pendingIntent = PendingIntent.getBroadcast(getApplicationContext(), INTENT_IDENTIFICATOR, intent, PendingIntent.FLAG_UPDATE_CURRENT);
         ((AlarmManager) getSystemService(ALARM_SERVICE)).set(AlarmManager.RTC, calendar.getTimeInMillis(), pendingIntent);
         Log.e(TAG, "Alarm set to " + calendar.getTime().toString());
     }
@@ -259,7 +248,12 @@ public class MainActivity extends Activity  {
     private void closeApp() {
         stopService(new Intent(this, SleepDetector.class));
         if (binder!=null) {
-            unbindService(serviceConnection);
+            try {
+                unbindService(serviceConnection);
+            }
+            catch(IllegalArgumentException e) {
+                Log.e(TAG,"error during service unbining.",e);
+            }
         }
         finish();
     }
