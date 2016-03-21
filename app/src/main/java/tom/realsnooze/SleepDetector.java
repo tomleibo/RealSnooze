@@ -36,7 +36,6 @@ public class SleepDetector extends Service implements SensorEventListener,Runnab
     public void onCreate() {
         super.onCreate();
         Log.e(TAG, "onCreate");
-        setRunning(true);
         timeCreated= System.currentTimeMillis();
         sensorManager = (SensorManager)getSystemService(Context.SENSOR_SERVICE);
         gravityStatistics = new SummaryStatistics();
@@ -161,6 +160,5 @@ public class SleepDetector extends Service implements SensorEventListener,Runnab
     public void onDestroy() {
         super.onDestroy();
         Log.e(TAG, "onDestroy");
-        setRunning(false);
     }
 }

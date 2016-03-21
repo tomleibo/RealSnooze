@@ -7,11 +7,15 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.preference.PreferenceManager;
 import android.text.Editable;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.TimePicker;
@@ -21,8 +25,6 @@ import java.util.Calendar;
 
 /**
  * BUGS:
- * 2. alarm is on even when not asleep - check isAsleep and its usages
- * 3. edit snooze not working. focus listener doesnt launch.
  * 4. closeApp causes IllegalArgumentException. and unbinding may not work.
  * DONE:
  * V - fixed service flags.
@@ -33,10 +35,11 @@ import java.util.Calendar;
  * V - added snooze field.
  * V - keyboard doesnt close
  * V - previous alarms are not cancelled - last intent number(or extra) can be saved in shared prefrences and checked in alarm receiver.
+ * V - alarm is on even when not asleep - check isAsleep and its usages
+ * V. edit snooze not working. focus listener doesn't launch.
+ * V save snooze value as shared preferences.
  * TODO:
- * *. implement snooze field behavior. and test
- * 1. set snooze input field.
- * 2. save snooze value as shared preferences.
+ * 1. Save clock and toggle values in sharedPrefs and load them onCreate.
  * 4. improve music player.
  * 5. create a proper notification service?
  * 3. fix log levels
@@ -48,6 +51,7 @@ public class MainActivity extends Activity  {
     public static final int DEFAULT_SNOOZE_MINUTES = 2;
     private static final long TIME_ALIVE_IMPLIES_NOT_FIRST_RUN = 30;
     private static final int INTENT_IDENTIFICATOR = 1234;
+    private static final String PREF_SNOOZE = "snoozeMinutes";
     private int snoozeMinutes = DEFAULT_SNOOZE_MINUTES;
     public static final String INTENT_PARAM_IS_ALARM = "isAlarm";
     private static final String TAG = "MainActivity";
@@ -86,7 +90,7 @@ public class MainActivity extends Activity  {
         setContentView(R.layout.activity_main);
         snoozeText = (TextView) findViewById(R.id.textView);
         snoozeField = (EditText) findViewById(R.id.editText);
-        snoozeField.setText(DEFAULT_SNOOZE_MINUTES+"");
+        snoozeField.setText(PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getInt(PREF_SNOOZE,DEFAULT_SNOOZE_MINUTES) + "");
         snoozeField.setFocusable(true);
         alarmTimePicker = (TimePicker) findViewById(R.id.alarmTimePicker);
         toggle = (ToggleButton) findViewById(R.id.alarmToggle);
@@ -98,21 +102,26 @@ public class MainActivity extends Activity  {
                 }
             }
         });
-        snoozeField.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+        snoozeField.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
-            public void onFocusChange(View v, boolean hasFocus) {
-                if (!hasFocus) {
+            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                Log.e(TAG,""+actionId);
+                if (actionId == EditorInfo.IME_ACTION_DONE) {
                     snoozeChanged(snoozeField.getText());
+                    //findViewById(R.id.layout).requestFocus();
                 }
+                return false;
             }
         });
-
     }
 
     private void snoozeChanged(Editable text) {
         try {
             snoozeMinutes = Integer.parseInt(text.toString());
-
+            SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+            SharedPreferences.Editor editor = pref.edit();
+            editor.putInt(PREF_SNOOZE, snoozeMinutes);
+            editor.apply();
             Log.e(TAG,"snooze changed = "+snoozeMinutes);
         }
         catch(NumberFormatException e) {
