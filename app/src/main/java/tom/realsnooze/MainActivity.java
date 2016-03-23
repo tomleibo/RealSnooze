@@ -25,8 +25,8 @@ import java.util.Calendar;
 
 /**
  * BUGS:
- * 1. ALARM IS SHOOTING IF HOUR IS BEFORE NOW?!  OR  is alarm set to the previous day if time is before now ??
  * 2. closeApp causes IllegalArgumentException. and unbinding may not work.
+ * 3. when alarm is off - delete alarm time from prefs.
  * DONE:
  * V - fixed service flags.
  * V - fixed activity showing one more time after snooze.
@@ -40,7 +40,9 @@ import java.util.Calendar;
  * V. edit snooze not working. focus listener doesn't launch.
  * V save snooze value as shared preferences.
  * V. Save clock and toggle values in sharedPrefs and load them onCreate.
+ * V. ALARM IS SHOOTING IF HOUR IS BEFORE NOW?!  OR  is alarm set to the previous day if time is before now ??
  * TODO:
+ * 1. how do I cancel an alarm?!
  * 4. improve music player.
  * 5. create a proper notification service?
  * 3. fix log levels
@@ -223,11 +225,16 @@ public class MainActivity extends Activity  {
 
     private void onNewTimeSet() {
         cancelPreviousAlarms();
-        Calendar calendar = Calendar.getInstance();
-        calendar.set(Calendar.HOUR_OF_DAY, alarmTimePicker.getCurrentHour());
-        calendar.set(Calendar.MINUTE, alarmTimePicker.getCurrentMinute());
-        setAlarm(calendar);
-        saveAlarmTimeToPrefs(calendar);
+        Calendar alarmTime = Calendar.getInstance();
+        Calendar now = Calendar.getInstance();
+        alarmTime.set(Calendar.HOUR_OF_DAY, alarmTimePicker.getCurrentHour());
+        alarmTime.set(Calendar.MINUTE, alarmTimePicker.getCurrentMinute());
+        if (now.before(alarmTime)) {
+            alarmTime.add(Calendar.DATE,1);
+        }
+
+        setAlarm(alarmTime);
+        saveAlarmTimeToPrefs(alarmTime);
     }
 
     private void saveAlarmTimeToPrefs(Calendar calendar) {
