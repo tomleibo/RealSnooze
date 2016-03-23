@@ -25,7 +25,8 @@ import java.util.Calendar;
 
 /**
  * BUGS:
- * 4. closeApp causes IllegalArgumentException. and unbinding may not work.
+ * 1. ALARM IS SHOOTING IF HOUR IS BEFORE NOW?!  OR  is alarm set to the previous day if time is before now ??
+ * 2. closeApp causes IllegalArgumentException. and unbinding may not work.
  * DONE:
  * V - fixed service flags.
  * V - fixed activity showing one more time after snooze.
@@ -34,12 +35,12 @@ import java.util.Calendar;
  * V - onNewTimeSet also cancels all previous alarms.
  * V - added snooze field.
  * V - keyboard doesnt close
- * V - previous alarms are not cancelled - last intent number(or extra) can be saved in shared prefrences and checked in alarm receiver.
+ * V - previous alarms are not cancelled - last intent number(or extra) can be saved in shared preferences and checked in alarm receiver.
  * V - alarm is on even when not asleep - check isAsleep and its usages
  * V. edit snooze not working. focus listener doesn't launch.
  * V save snooze value as shared preferences.
+ * V. Save clock and toggle values in sharedPrefs and load them onCreate.
  * TODO:
- * 1. Save clock and toggle values in sharedPrefs and load them onCreate.
  * 4. improve music player.
  * 5. create a proper notification service?
  * 3. fix log levels
@@ -52,10 +53,12 @@ public class MainActivity extends Activity  {
     private static final long TIME_ALIVE_IMPLIES_NOT_FIRST_RUN = 30;
     private static final int INTENT_IDENTIFICATOR = 1234;
     private static final String PREF_SNOOZE = "snoozeMinutes";
-    private int snoozeMinutes = DEFAULT_SNOOZE_MINUTES;
+    private static final String PREF_TIME = "time";
+    private static final String PREF_ON = "on";
     public static final String INTENT_PARAM_IS_ALARM = "isAlarm";
     private static final String TAG = "MainActivity";
 
+    private int snoozeMinutes = DEFAULT_SNOOZE_MINUTES;
     private EditText snoozeField = null;
     private TextView snoozeText = null;
     private SleepDetector.Binder binder=null;
@@ -94,6 +97,8 @@ public class MainActivity extends Activity  {
         snoozeField.setFocusable(true);
         alarmTimePicker = (TimePicker) findViewById(R.id.alarmTimePicker);
         toggle = (ToggleButton) findViewById(R.id.alarmToggle);
+        setAlarmTimeFromPrefs(alarmTimePicker);
+        setToggleFromPrefs(toggle);
         alarmTimePicker.setOnTimeChangedListener(new TimePicker.OnTimeChangedListener() {
             @Override
             public void onTimeChanged(TimePicker view, int hourOfDay, int minute) {
@@ -113,6 +118,23 @@ public class MainActivity extends Activity  {
                 return false;
             }
         });
+    }
+
+    private void setToggleFromPrefs(ToggleButton toggle) {
+        boolean b = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getBoolean(PREF_ON, false);
+        toggle.setChecked(b);
+    }
+
+    private void setAlarmTimeFromPrefs(TimePicker alarmTimePicker) {
+        long l = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getLong(PREF_TIME, 0);
+        if (l==0) {
+            return;
+        }
+        Calendar c = Calendar.getInstance();
+        c.setTimeInMillis(l);
+        //deprecated in level 23.
+        alarmTimePicker.setCurrentHour(c.get(Calendar.HOUR_OF_DAY));
+        alarmTimePicker.setCurrentMinute(c.get(Calendar.MINUTE));
     }
 
     private void snoozeChanged(Editable text) {
@@ -183,12 +205,20 @@ public class MainActivity extends Activity  {
 
     public void onToggleClicked(View view) {
         Log.e(TAG, "onToggle");
-        if (toggle.isChecked()) {
+        boolean checked = toggle.isChecked();
+        if (checked) {
             onNewTimeSet();
         } else {
             Log.e(TAG, "Music off");
             MusicPlayer.stop();
         }
+        saveToggleStateInPrefs(checked);
+    }
+
+    private void saveToggleStateInPrefs(boolean checked) {
+        SharedPreferences.Editor editor= PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).edit();
+        editor.putBoolean(PREF_ON,checked);
+        editor.apply();
     }
 
     private void onNewTimeSet() {
@@ -197,6 +227,13 @@ public class MainActivity extends Activity  {
         calendar.set(Calendar.HOUR_OF_DAY, alarmTimePicker.getCurrentHour());
         calendar.set(Calendar.MINUTE, alarmTimePicker.getCurrentMinute());
         setAlarm(calendar);
+        saveAlarmTimeToPrefs(calendar);
+    }
+
+    private void saveAlarmTimeToPrefs(Calendar calendar) {
+        SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).edit();
+        editor.putLong(PREF_TIME, calendar.getTimeInMillis());
+        editor.apply();
     }
 
     private void cancelPreviousAlarms() {
