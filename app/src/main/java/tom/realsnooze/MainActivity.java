@@ -12,7 +12,6 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
 import android.text.Editable;
-import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
@@ -25,8 +24,11 @@ import java.util.Calendar;
 
 /**
  * BUGS:
+ * should instatiate logger with a context from which the filesystem root can be requested.
+ *
  * 2. closeApp causes IllegalArgumentException. and unbinding may not work.
  * 3. when alarm is off - delete alarm time from prefs.
+ *
  * DONE:
  * V - fixed service flags.
  * V - fixed activity showing one more time after snooze.
@@ -42,7 +44,7 @@ import java.util.Calendar;
  * V. Save clock and toggle values in sharedPrefs and load them onCreate.
  * V. ALARM IS SHOOTING IF HOUR IS BEFORE NOW?!  OR  is alarm set to the previous day if time is before now ??
  * TODO:
- * 1. how do I cancel an alarm?!
+ * 1. how do I cancel an alarm?! check alarm time versus this time. if now is before then cancel is OK.
  * 4. improve music player.
  * 5. create a proper notification service?
  * 3. fix log levels
@@ -251,7 +253,6 @@ public class MainActivity extends Activity  {
         }
     }
 
-
     public void setAlarm(Calendar calendar) {
         Intent intent = new Intent(MainActivity.this, AlarmReceiver.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -299,6 +300,7 @@ public class MainActivity extends Activity  {
     }
 
     private void closeApp() {
+        Log.e(TAG,"closing app");
         stopService(new Intent(this, SleepDetector.class));
         if (binder!=null) {
             try {
