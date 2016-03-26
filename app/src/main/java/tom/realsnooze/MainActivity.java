@@ -24,11 +24,7 @@ import java.util.Calendar;
 
 /**
  * BUGS:
- * should instatiate logger with a context from which the filesystem root can be requested.
- *
  * 2. closeApp causes IllegalArgumentException. and unbinding may not work.
- * 3. when alarm is off - delete alarm time from prefs.
- *
  * DONE:
  * V - fixed service flags.
  * V - fixed activity showing one more time after snooze.
@@ -43,6 +39,8 @@ import java.util.Calendar;
  * V save snooze value as shared preferences.
  * V. Save clock and toggle values in sharedPrefs and load them onCreate.
  * V. ALARM IS SHOOTING IF HOUR IS BEFORE NOW?!  OR  is alarm set to the previous day if time is before now ??
+ * V - should instatiate logger with a context from which the filesystem root can be requested. (device restart is required to view in PC)
+ * V - when alarm is off - delete alarm time from prefs.
  * TODO:
  * 1. how do I cancel an alarm?! check alarm time versus this time. if now is before then cancel is OK.
  * 4. improve music player.
@@ -93,6 +91,7 @@ public class MainActivity extends Activity  {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.init(getApplicationContext());
         Log.e(TAG, "onCreate");
         setContentView(R.layout.activity_main);
         snoozeText = (TextView) findViewById(R.id.textView);
@@ -300,18 +299,25 @@ public class MainActivity extends Activity  {
     }
 
     private void closeApp() {
-        Log.e(TAG,"closing app");
+        Log.e(TAG, "closing app");
+        deleteAlarmPrefs();
         stopService(new Intent(this, SleepDetector.class));
         if (binder!=null) {
             try {
                 unbindService(serviceConnection);
             }
             catch(IllegalArgumentException e) {
-                Log.e(TAG,"error during service unbining.",e);
+                Log.e(TAG,"error during service unbinding.",e);
             }
         }
         finish();
     }
 
-
+    private void deleteAlarmPrefs() {
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+        SharedPreferences.Editor editor = pref.edit();
+        editor.remove(PREF_TIME);
+        editor.remove(PREF_ON);
+        editor.commit();
+    }
 }

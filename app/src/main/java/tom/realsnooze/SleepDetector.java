@@ -11,7 +11,6 @@ import android.hardware.SensorManager;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
-import android.util.Log;
 
 import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 
@@ -35,6 +34,7 @@ public class SleepDetector extends Service implements SensorEventListener,Runnab
     @Override
     public void onCreate() {
         super.onCreate();
+        Log.init(getApplicationContext());
         Log.e(TAG, "onCreate");
         timeCreated= System.currentTimeMillis();
         sensorManager = (SensorManager)getSystemService(Context.SENSOR_SERVICE);
