@@ -67,26 +67,7 @@ public class MainActivity extends Activity  {
     private ToggleButton toggle;
     private TimePicker alarmTimePicker;
     private PendingIntent pendingIntent;
-    private ServiceConnection serviceConnection = new ServiceConnection() {
-
-        @Override
-        public void onServiceConnected(ComponentName className, IBinder service) {
-            Log.e(TAG,"Service connected.");
-            binder = (SleepDetector.Binder) service;
-            if (binder.getTimeAliveSeconds() > TIME_ALIVE_IMPLIES_NOT_FIRST_RUN) {
-                Log.e(TAG,"this is not the first run of the service.");
-                alarmIfAsleepCloseIfAwake();
-                return;
-            }
-            Log.e(TAG,"first run of the service just sounding alarm and setting snooze.");
-            SoundAlarmAndSetSnooze();
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName arg0) {
-            binder = null;
-        }
-    };
+    private ServiceConnection serviceConnection = new MyServiceConnection();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -116,7 +97,6 @@ public class MainActivity extends Activity  {
                 Log.e(TAG,""+actionId);
                 if (actionId == EditorInfo.IME_ACTION_DONE) {
                     snoozeChanged(snoozeField.getText());
-                    //findViewById(R.id.layout).requestFocus();
                 }
                 return false;
             }
@@ -319,5 +299,26 @@ public class MainActivity extends Activity  {
         editor.remove(PREF_TIME);
         editor.remove(PREF_ON);
         editor.commit();
+    }
+
+    private class MyServiceConnection implements ServiceConnection {
+
+        @Override
+        public void onServiceConnected(ComponentName className, IBinder service) {
+            Log.e(TAG, "Service connected.");
+            binder = (SleepDetector.Binder) service;
+            if (binder.getTimeAliveSeconds() > TIME_ALIVE_IMPLIES_NOT_FIRST_RUN) {
+                Log.e(TAG,"this is not the first run of the service.");
+                alarmIfAsleepCloseIfAwake();
+                return;
+            }
+            Log.e(TAG,"first run of the service just sounding alarm and setting snooze.");
+            SoundAlarmAndSetSnooze();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName arg0) {
+            binder = null;
+        }
     }
 }
