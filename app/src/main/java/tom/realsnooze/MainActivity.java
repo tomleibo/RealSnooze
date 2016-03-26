@@ -72,6 +72,12 @@ public class MainActivity extends Activity  {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(Thread thread, Throwable ex) {
+                Log.e(TAG,"Uncaught Exception: ",ex);
+            }
+        });
         Log.init(getApplicationContext());
         Log.e(TAG, "onCreate");
         setContentView(R.layout.activity_main);
