@@ -26,9 +26,6 @@ public class Log {
             {
                 file.getParentFile().mkdirs();
                 file.createNewFile();
-                for (File f :file.getParentFile().listFiles()){
-                    android.util.Log.e("FILE", f.getAbsolutePath());
-                }
             }
             catch (IOException e)
             {
@@ -75,7 +72,11 @@ public class Log {
     }
 
     public static void log(String tag,String s,Throwable t,char logLevel) {
-        log(tag,"dev msg: "+s+". Exception thrown: "+t.getLocalizedMessage(),logLevel);
+        StringBuilder sb = new StringBuilder("dev msg: "+s+". Exception thrown: "+t.getLocalizedMessage());
+        for (StackTraceElement e : t.getStackTrace()) {
+            sb.append("\n"+e.toString());
+        }
+        log(tag,sb.toString(),logLevel);
     }
 
     public static void e(String tag,String msg) {

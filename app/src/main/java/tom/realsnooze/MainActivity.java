@@ -53,7 +53,6 @@ import java.util.Date;
 
 public class MainActivity extends Activity  {
 
-
     public static final int DEFAULT_SNOOZE_MINUTES = 2;
     private static final long TIME_ALIVE_IMPLIES_NOT_FIRST_RUN = 30;
     private static final int INTENT_IDENTIFICATOR = 1234;
@@ -232,7 +231,7 @@ public class MainActivity extends Activity  {
         Date alarm = alarmTime.getTime();
         long diff = alarm.getTime() - now.getTime();
         long hours = diff / (3600 * 1000);
-        long minutes = diff / ((60*1000)%60);
+        long minutes = (diff / (60*1000))%60;
         StringBuilder text= new StringBuilder("Alarm set to ");
         if (hours ==0 && minutes ==0) {
             text.append("now! WTF?");
