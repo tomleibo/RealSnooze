@@ -18,12 +18,15 @@ import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.TimePicker;
+import android.widget.Toast;
 import android.widget.ToggleButton;
 
 import java.util.Calendar;
+import java.util.Date;
 
 /**
  * BUGS:
+ * * 1. how do I cancel an alarm?! check alarm time versus this time. if now is before then cancel is OK.
  * 2. closeApp causes IllegalArgumentException. and unbinding may not work.
  * DONE:
  * V - fixed service flags.
@@ -42,7 +45,7 @@ import java.util.Calendar;
  * V - should instatiate logger with a context from which the filesystem root can be requested. (device restart is required to view in PC)
  * V - when alarm is off - delete alarm time from prefs.
  * TODO:
- * 1. how do I cancel an alarm?! check alarm time versus this time. if now is before then cancel is OK.
+
  * 4. improve music player.
  * 5. create a proper notification service?
  * 3. fix log levels
@@ -206,7 +209,7 @@ public class MainActivity extends Activity  {
 
     private void saveToggleStateInPrefs(boolean checked) {
         SharedPreferences.Editor editor= PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).edit();
-        editor.putBoolean(PREF_ON,checked);
+        editor.putBoolean(PREF_ON, checked);
         editor.apply();
     }
 
@@ -216,12 +219,42 @@ public class MainActivity extends Activity  {
         Calendar now = Calendar.getInstance();
         alarmTime.set(Calendar.HOUR_OF_DAY, alarmTimePicker.getCurrentHour());
         alarmTime.set(Calendar.MINUTE, alarmTimePicker.getCurrentMinute());
-        if (now.before(alarmTime)) {
+        if (now.after(alarmTime)) {
             alarmTime.add(Calendar.DATE,1);
         }
-
         setAlarm(alarmTime);
+        showAlarmSetToast(alarmTime);
         saveAlarmTimeToPrefs(alarmTime);
+    }
+
+    private void showAlarmSetToast(Calendar alarmTime) {
+        Date now = (Calendar.getInstance()).getTime();
+        Date alarm = alarmTime.getTime();
+        long diff = alarm.getTime() - now.getTime();
+        long hours = diff / (3600 * 1000);
+        long minutes = diff / ((60*1000)%60);
+        StringBuilder text= new StringBuilder("Alarm set to ");
+        if (hours ==0 && minutes ==0) {
+            text.append("now! WTF?");
+            Toast.makeText(getApplicationContext(), text.toString(), Toast.LENGTH_SHORT);
+            return;
+        }
+        else if(hours ==0) {
+            text.append(minutes);
+            text.append(" minutes");
+        }
+        else if (minutes == 0){
+            text.append(hours);
+            text.append(" hours");
+        }
+        else {
+            text.append(hours);
+            text.append(" hours and ");
+            text.append(minutes);
+            text.append(" minutes");
+        }
+        text.append(" from now. Good night!");
+        Toast.makeText(getApplicationContext(),text.toString(),Toast.LENGTH_SHORT).show();
     }
 
     private void saveAlarmTimeToPrefs(Calendar calendar) {
