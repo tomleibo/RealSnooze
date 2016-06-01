@@ -26,9 +26,9 @@ import java.util.Date;
 
 /**
  * BUGS:
- * * 1. how do I cancel an alarm?! check alarm time versus this time. if now is before then cancel is OK.
- * 2. closeApp causes IllegalArgumentException. and unbinding may not work.
+ * 1. closeApp causes IllegalArgumentException. and unbinding may not work.
  * DONE:
+ * V - how do I cancel an alarm?! check alarm time versus this time. if now is before then cancel is OK.
  * V - fixed service flags.
  * V - fixed activity showing one more time after snooze.
  * V - closed app and service when user awakes.
@@ -202,6 +202,15 @@ public class MainActivity extends Activity  {
         } else {
             Log.e(TAG, "Music off");
             MusicPlayer.stop();
+
+            long alarmTime = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getLong(PREF_TIME, 0);
+            Calendar snoozeTime = Calendar.getInstance();
+            snoozeTime.add(Calendar.MINUTE,PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getInt(PREF_SNOOZE,DEFAULT_SNOOZE_MINUTES));
+            Calendar alarmCalendar = Calendar.getInstance();
+            alarmCalendar.setTimeInMillis(alarmTime);
+            if (snoozeTime.before(alarmCalendar)) {
+                cancelPreviousAlarms();
+            }
         }
         saveToggleStateInPrefs(checked);
     }
